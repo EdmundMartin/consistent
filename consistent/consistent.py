@@ -6,13 +6,11 @@ from consistent.node import Node
 from consistent.sorted_set import SimpleSortedSet
 from consistent.xxhasher import Hasher, XXHasher
 
-import xxhash
-
 
 class Consistent:
 
     def __init__(self, nodes: List[Node], configuration: Config,
-                 hasher: Hasher =XXHasher()):
+                 hasher: Hasher = XXHasher()):
         self.config = configuration
         self.loads: Dict[str, float] = {}
         self.members: Dict[str, Node] = {}
@@ -31,9 +29,7 @@ class Consistent:
         idx = 0
         while idx < self.config.replication_factor:
             key = f"{node.name()}{idx}"
-            x = xxhash.xxh64()
-            x.update(key.encode())
-            result = x.intdigest()
+            result = self.hasher.hash_str(key)
             self.ring[result] = node
             self.sorted_set.add(result)
             idx += 1
@@ -63,9 +59,7 @@ class Consistent:
         partitions: Dict[int, Node] = {}
         idx = 0
         while idx < self.config.partition_count:
-            x = xxhash.xxh64()
-            x.update(idx.to_bytes(8, "little"))
-            key = x.intdigest()
+            key = self.hasher.hash_int(idx)
             key_idx = self.sorted_set.find_idx(key)
             if key_idx is None:
                 key_idx = 0
@@ -104,7 +98,6 @@ class Consistent:
         return copied_loads
 
     def _get_closest_n(self, partition_id: int, count) -> List[Node]:
-
         result = []
         if count > len(self.members):
             raise ValueError(f"Not enough members for closest n: {count}")
@@ -139,9 +132,7 @@ class Consistent:
         return result
 
     def find_partition_id(self, key: str) -> int:
-        x = xxhash.xxh64()
-        x.update(key.encode())
-        result = x.intdigest()
+        result = self.hasher.hash_str(key)
         return result % self.config.partition_count
 
     def get_partition_owner(self, partition_id: int) -> Optional[Node]:
